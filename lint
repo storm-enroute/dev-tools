@@ -81,6 +81,7 @@ linters = [
   ScalaLinter()
 ]
 
+
 def format_error(error):
   file, lineno, line, cursor, msg = error
   loge(file + ":" + str(lineno) + ": " + msg)
