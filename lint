@@ -89,16 +89,19 @@ def format_error(error):
   loge(" " * cursor + "^")
 
 
-def lint(filepath, force=False):
-  for linter in linters:
-    if force or linter.matches(filepath):
-      linter.check(filepath)
+def flush_errors():
   for error in errors:
     format_error(error)
   if errors:
     msg = "{0} lint error{1} found.".format(
       len(errors), "" if len(errors) == 1 else "s")
     abort(msg)
+
+
+def lint(filepath, force=False):
+  for linter in linters:
+    if force or linter.matches(filepath):
+      linter.check(filepath)
 
 
 def main(args):
@@ -112,6 +115,7 @@ def main(args):
     for root, dirs, files in os.walk(args.path):
       for file in files:
         lint(os.path.abspath(os.path.join(root, file)))
+  flush_errors()
 
 
 if __name__ == "__main__":
