@@ -43,6 +43,12 @@ class Linter(object):
       msg = "Line length {0}, max {1}.".format(len(line), MAX_LINE_LENGTH)
       error(filepath, lineno, line, MAX_LINE_LENGTH, msg)
 
+  @staticmethod
+  def disallow_char(filepath, lineno, line, c, crep):
+    if line.find(c) != -1:
+      msg = "Character '{0}' is not allowed.".format(crep)
+      error(filepath, lineno, line, line.find(c), msg)
+
 
 class PyLinter(object):
   def matches(self, filepath):
@@ -53,6 +59,7 @@ class PyLinter(object):
       lineno = 0
       for line in f:
         Linter.check_line_length(filepath, lineno, line[:-1])
+        Linter.disallow_char(filepath, lineno, line, "\t", "\\t")
         lineno += 1
 
 
@@ -65,6 +72,7 @@ class ScalaLinter(object):
       lineno = 0
       for line in f:
         Linter.check_line_length(filepath, lineno, line[:-1])
+        Linter.disallow_char(filepath, lineno, line, "\t", "\\t")
         lineno += 1
 
 
@@ -80,9 +88,9 @@ def format_error(error):
   loge(" " * cursor + "^")
 
 
-def lint(filepath):
+def lint(filepath, force=False):
   for linter in linters:
-    if linter.matches(filepath):
+    if force or linter.matches(filepath):
       linter.check(filepath)
   for error in errors:
     format_error(error)
@@ -98,7 +106,7 @@ def main(args):
     help="Path to specific file to check, or directory to check recursively.")
   args = parser.parse_args(args[1:])
   if os.path.isfile(args.path):
-    lint(os.path.abspath(args.path))
+    lint(os.path.abspath(args.path), force=True)
   else:
     for root, dirs, files in os.walk(args.path):
       for file in files:
