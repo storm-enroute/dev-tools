@@ -15,11 +15,11 @@ def log(s):
 
 def loge(s):
   sys.stderr.write(s + "\n")
-  sys.stdout.flush()
+  sys.stderr.flush()
 
 
 def abort(s):
-  log(s)
+  loge(s)
   sys.exit(1)
 
 

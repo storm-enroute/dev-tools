@@ -1,0 +1,144 @@
+#!/usr/bin/env python
+
+import argparse
+import os
+import sys
+
+
+def log(s):
+  print(s)
+  sys.stdout.flush()
+
+
+def loge(s):
+  sys.stderr.write(s + "\n")
+  sys.stderr.flush()
+
+
+def abort(s):
+  loge(s)
+  sys.exit(1)
+
+
+class FreeMode(object):
+  def __init__(self, gen):
+    self.gen = gen
+
+  def consume(self, line, no):
+    if not line.strip().startswith("/*!"):
+      return self
+    else:
+      cmd = line.strip()[3:]
+      depth = line.find("/*!")
+      if cmd == "md":
+        return MarkdownMode(self.gen, depth)
+      elif cmd.startswith("begin-code"):
+        return CodeMode(self.gen, depth)
+      else:
+        abort("Unknown command encountered in free mode at {}: {}".format(no, cmd))
+
+
+class MarkdownMode(object):
+  def __init__(self, gen, depth):
+    self.gen = gen
+    self.depth = depth
+
+  def consume(self, line, no):
+    if line.strip().startswith("!*/"):
+      return FreeMode(self.gen)
+    elif not line[:depth].isspace():
+      abort("Markdown at depth " + self.depth + ", line " + no + ", " +
+        "contains improperly indented text:\n" + line)
+    else:
+      self.gen.markdown.append(line[depth:])
+      return self
+
+
+class CodeMode(object):
+  def __init__(self, gen, depth):
+    self.gen = gen
+    self.depth = depth
+    self.started = false
+
+  def consume(self, line, no):
+    if not self.started:
+      self.gen.markdown.append("```scala")
+      self.started = true
+
+    if line.strip() == "/*!end-code!*/":
+      self.gen.markdown.append("```")
+      return FreeMode(self.gen)
+    elif line.strip().startswith("/*!"):
+      abort("Line " + no + " starts with command syntax while in code mode: " + line)
+    elif not line[:depth].isspace():
+      abort("Code at depth " + self.dept + ", line " + no + ", " +
+        "contains improperly indented text:\n" + line)
+    else:
+      self.gen.markdown.append(line[depth:])
+      return self
+
+
+class ScalaGen(object):
+  def __init__(self):
+    self.markdown = []
+
+  def matches(self, path):
+    return path.endswith(".scala")
+
+  def generate(self, path, output_dir):
+    mode = FreeMode(self)
+    with open(path, "r") as f:
+      no = 0
+      for line in f:
+        no += 1
+        mode = mode.consume(line, no)
+    filename, ext = os.path.splitext(os.path.basename(path))
+    output_path = os.path.join(output_dir, filename + ".md")
+
+    if not self.markdown:
+      return
+
+    if not os.path.exists(output_dir):
+      os.makedirs(output_dir)
+
+    with open(output_path, "w") as f:
+      for line in self.markdown:
+        f.write(line + "\n")
+
+
+_generators = {
+  "scala": lambda: ScalaGen()
+}
+
+
+def main(args):
+  parser = argparse.ArgumentParser(
+    description="Produces markdown docs from annotated unit tests.")
+  parser.add_argument("-p", "--path", required=True,
+    help="Path to specific file or file tree to generate documentation for.")
+  parser.add_argument("-t", "--type", default="scala",
+    help="Type of files to generate documentation for, one of: scala")
+  parser.add_argument("-o", "--output", required=True,
+    help="Output directory for the generated documentation files.")
+  args = parser.parse_args(args[1:])
+
+  if os.path.isfile(args.path):
+    gen = _generators[args.type]()
+    path = os.path.abspath(args.path)
+    if gen.matches(path):
+      gen.generate(path, args.output)
+    else:
+      abort("File {} does not have extension {}.".format(args.path, extension))
+  else:
+    for root, dirs, files in os.walk(args.path):
+      for file in files:
+        gen = _generators[args.type]()
+        path = os.path.abspath(os.path.join(root, file))
+        relpath = os.path.abspath(root)[len(os.path.abspath(args.path)) + 1:]
+        output_path = os.path.join(os.path.abspath(args.output), relpath)
+        if gen.matches(path):
+          gen.generate(path, output_path)
+
+
+if __name__ == "__main__":
+  main(sys.argv)
