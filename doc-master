@@ -5,14 +5,21 @@ import os
 import sys
 
 
+_verbose = False
+
+
 def log(s):
   print(s)
-  sys.stdout.flush()
 
 
 def loge(s):
   sys.stderr.write(s + "\n")
   sys.stderr.flush()
+
+
+def logv(s):
+  if _verbose:
+    log(s)
 
 
 def abort(s):
@@ -45,12 +52,13 @@ class MarkdownMode(object):
 
   def consume(self, line, no):
     if line.strip().startswith("!*/"):
+      self.gen.markdown.append("")
       return FreeMode(self.gen)
-    elif not line[:depth].isspace():
-      abort("Markdown at depth " + self.depth + ", line " + no + ", " +
+    elif line[:self.depth] and not line[:self.depth].isspace():
+      abort("Markdown at depth " + str(self.depth) + ", line " + str(no) + ", " +
         "contains improperly indented text:\n" + line)
     else:
-      self.gen.markdown.append(line[depth:])
+      self.gen.markdown.append(line[self.depth:].strip())
       return self
 
 
@@ -58,23 +66,24 @@ class CodeMode(object):
   def __init__(self, gen, depth):
     self.gen = gen
     self.depth = depth
-    self.started = false
+    self.started = False
 
   def consume(self, line, no):
     if not self.started:
       self.gen.markdown.append("```scala")
-      self.started = true
+      self.started = True
 
     if line.strip() == "/*!end-code!*/":
       self.gen.markdown.append("```")
+      self.gen.markdown.append("")
       return FreeMode(self.gen)
     elif line.strip().startswith("/*!"):
       abort("Line " + no + " starts with command syntax while in code mode: " + line)
-    elif not line[:depth].isspace():
-      abort("Code at depth " + self.dept + ", line " + no + ", " +
+    elif line[:self.depth] and not line[:self.depth].isspace():
+      abort("Code at depth " + str(self.depth) + ", line " + str(no) + ", " +
         "contains improperly indented text:\n" + line)
     else:
-      self.gen.markdown.append(line[depth:])
+      self.gen.markdown.append(line[self.depth:].strip())
       return self
 
 
@@ -101,6 +110,7 @@ class ScalaGen(object):
     if not os.path.exists(output_dir):
       os.makedirs(output_dir)
 
+    logv("Outputting to " + output_path + ":\n" + "\n".join(self.markdown))
     with open(output_path, "w") as f:
       for line in self.markdown:
         f.write(line + "\n")
@@ -120,7 +130,12 @@ def main(args):
     help="Type of files to generate documentation for, one of: scala")
   parser.add_argument("-o", "--output", required=True,
     help="Output directory for the generated documentation files.")
+  parser.add_argument("-v", "--verbose", default=False,
+    help="Turn on verbose output.")
   args = parser.parse_args(args[1:])
+
+  global _verbose
+  _verbose = args.verbose
 
   if os.path.isfile(args.path):
     gen = _generators[args.type]()
