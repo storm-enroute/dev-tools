@@ -94,7 +94,7 @@ class ScalaGen(object):
   def matches(self, path):
     return path.endswith(".scala")
 
-  def generate(self, path, output_dir, frontmatter):
+  def generate(self, path, output_dir):
     mode = FreeMode(self)
     with open(path, "r") as f:
       no = 0
@@ -112,10 +112,6 @@ class ScalaGen(object):
 
     logv("Outputting to " + output_path + ":\n" + "\n".join(self.markdown))
     with open(output_path, "w") as f:
-      if frontmatter:
-        f.write("---\n")
-        f.write("---\n")
-        f.write("\n")
       for line in self.markdown:
         f.write(line + "\n")
 
@@ -125,17 +121,17 @@ _generators = {
 }
 
 
+def generatorFor(path):
+  return next((gen() for gen in _generators.values() if gen().matches(path)), None)
+
+
 def main(args):
   parser = argparse.ArgumentParser(
     description="Produces markdown docs from annotated unit tests.")
   parser.add_argument("-p", "--path", required=True,
     help="Path to specific file or file tree to generate documentation for.")
-  parser.add_argument("-t", "--type", default="scala",
-    help="Type of files to generate documentation for, one of: scala")
   parser.add_argument("-o", "--output", required=True,
     help="Output directory for the generated documentation files.")
-  parser.add_argument("--frontmatter", default=False,
-    help="Generate frontmatter needed to generate html with Jekyll.")
   parser.add_argument("-v", "--verbose", default=False,
     help="Turn on verbose output.")
   args = parser.parse_args(args[1:])
@@ -144,21 +140,20 @@ def main(args):
   _verbose = args.verbose
 
   if os.path.isfile(args.path):
-    gen = _generators[args.type]()
-    path = os.path.abspath(args.path)
-    if gen.matches(path):
-      gen.generate(path, args.output, args.frontmatter)
-    else:
+    gen = generatorFor(args.path)
+    if not gen:
       abort("File {} does not have extension {}.".format(args.path, extension))
+    path = os.path.abspath(args.path)
+    gen.generate(path, args.output)
   else:
     for root, dirs, files in os.walk(args.path):
       for file in files:
-        gen = _generators[args.type]()
         path = os.path.abspath(os.path.join(root, file))
-        relpath = os.path.abspath(root)[len(os.path.abspath(args.path)) + 1:]
-        output_path = os.path.join(os.path.abspath(args.output), relpath)
-        if gen.matches(path):
-          gen.generate(path, output_path, args.frontmatter)
+        gen = generatorFor(path)
+        if gen:
+          relpath = os.path.abspath(root)[len(os.path.abspath(args.path)) + 1:]
+          output_path = os.path.join(os.path.abspath(args.output), relpath)
+          gen.generate(path, output_path)
 
 
 if __name__ == "__main__":
