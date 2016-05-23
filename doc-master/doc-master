@@ -134,7 +134,11 @@ def main(args):
   parser.add_argument("-o", "--output", required=True,
     help="Output directory for the generated documentation files.")
   parser.add_argument("--layouts-path", default=None,
-    help="Path to the directory with layout files, to copy into _layouts subdirectory.")
+    help="Path to the directory with layout files, to copy into _layouts subdir.")
+  parser.add_argument("--includes-path", default=None,
+    help="Path to the directory with include files, to copy into _includes subdir.")
+  parser.add_argument("--resources-path", default=None,
+    help="Path to the directory with resources files, to copy into resources subdir.")
   parser.add_argument("-v", "--verbose", default=False,
     help="Turn on verbose output.")
   args = parser.parse_args(args[1:])
@@ -145,6 +149,12 @@ def main(args):
   if args.layouts_path:
     distutils.dir_util.copy_tree(
       args.layouts_path, os.path.join(args.output, "_layouts"))
+  if args.includes_path:
+    distutils.dir_util.copy_tree(
+      args.includes_path, os.path.join(args.output, "_includes"))
+  if args.resources_path:
+    distutils.dir_util.copy_tree(
+      args.resources_path, os.path.join(args.output, "resources"))
 
   if os.path.isfile(args.path):
     gen = generatorFor(args.path)
