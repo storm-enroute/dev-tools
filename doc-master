@@ -4,7 +4,7 @@ import argparse
 import distutils
 import os
 import sys
-
+from distutils import dir_util
 
 _verbose = False
 
