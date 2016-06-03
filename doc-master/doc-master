@@ -86,15 +86,9 @@ class CodeMode(object):
       return self
 
 
-class ScalaGen(object):
-  def __init__(self):
-    self.markdown = []
-
-  def matches(self, path):
-    return path.endswith(".scala")
-
+class Gen(object):
   def generate(self, path, output_dir):
-    mode = FreeMode(self)
+    mode = self.initialMode()
     with open(path, "r") as f:
       no = 0
       for line in f:
@@ -115,8 +109,31 @@ class ScalaGen(object):
         f.write(line + "\n")
 
 
+class ScalaGen(Gen):
+  def __init__(self):
+    self.markdown = []
+
+  def matches(self, path):
+    return path.endswith(".scala")
+
+  def initialMode(self):
+    return FreeMode(self)
+
+
+class JavaGen(Gen):
+  def __init__(self):
+    self.markdown = []
+
+  def matches(self, path):
+    return path.endswith(".java")
+
+  def initialMode(self):
+    return FreeMode(self)
+
+
 _generators = {
   "scala": lambda: ScalaGen()
+  "java": lambda: JavaGen()
 }
 
 
