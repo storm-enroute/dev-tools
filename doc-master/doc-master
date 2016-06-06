@@ -132,7 +132,7 @@ class JavaGen(Gen):
 
 
 _generators = {
-  "scala": lambda: ScalaGen()
+  "scala": lambda: ScalaGen(),
   "java": lambda: JavaGen()
 }
 
