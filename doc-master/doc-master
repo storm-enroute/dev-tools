@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import re
 import sys
 
 _verbose = False
@@ -40,6 +41,14 @@ class FreeMode(object):
         return MarkdownMode(self.gen, depth)
       elif cmd.startswith("begin-code"):
         return CodeMode(self.gen, depth)
+      elif cmd.startswith("begin-include"):
+        self.gen.markdown.append([])
+        return self
+      elif cmd.startswith("end-include"):
+        path = re.search("end-include\((?P<path>.*)\)", cmd).group("path")
+        last = self.gen.markdown.pop(-1)
+        self.gen.dump(last, os.path.join(self.gen.includes_dir, path))
+        return self
       else:
         abort("Unknown command encountered in free mode at {}: {}".format(no, cmd))
 
@@ -51,13 +60,13 @@ class MarkdownMode(object):
 
   def consume(self, line, no):
     if line.strip().startswith("!*/"):
-      self.gen.markdown.append("")
+      self.gen.markdown[-1].append("")
       return FreeMode(self.gen)
     elif line[:self.depth] and not line[:self.depth].isspace():
       abort("Markdown at depth " + str(self.depth) + ", line " + str(no) + ", " +
         "contains improperly indented text:\n" + line)
     else:
-      self.gen.markdown.append(line[self.depth:][:-1])
+      self.gen.markdown[-1].append(line[self.depth:][:-1])
       return self
 
 
@@ -69,12 +78,12 @@ class CodeMode(object):
 
   def consume(self, line, no):
     if not self.started:
-      self.gen.markdown.append("```scala")
+      self.gen.markdown[-1].append("```" + self.gen.code_keyword())
       self.started = True
 
     if line.strip() == "/*!end-code!*/":
-      self.gen.markdown.append("```")
-      self.gen.markdown.append("")
+      self.gen.markdown[-1].append("```")
+      self.gen.markdown[-1].append("")
       return FreeMode(self.gen)
     elif line.strip().startswith("/*!"):
       abort("Line " + no + " starts with command syntax while in code mode: " + line)
@@ -82,12 +91,19 @@ class CodeMode(object):
       abort("Code at depth " + str(self.depth) + ", line " + str(no) + ", " +
         "contains improperly indented text:\n" + line)
     else:
-      self.gen.markdown.append(line[self.depth:][:-1])
+      self.gen.markdown[-1].append(line[self.depth:][:-1])
       return self
 
 
 class Gen(object):
-  def generate(self, path, output_dir):
+  def dump(self, lines, path):
+    logv("Outputting to " + path + ":\n" + "\n".join(lines))
+    with open(path, "w") as f:
+      for line in lines:
+        f.write(line + "\n")
+
+  def generate(self, path, output_dir, includes_dir):
+    self.includes_dir = includes_dir
     mode = self.initialMode()
     with open(path, "r") as f:
       no = 0
@@ -97,24 +113,24 @@ class Gen(object):
     filename, ext = os.path.splitext(os.path.basename(path))
     output_path = os.path.join(output_dir, filename + ".md")
 
-    if not self.markdown:
+    if not self.markdown[-1]:
       return
 
     if not os.path.exists(output_dir):
       os.makedirs(output_dir)
 
-    logv("Outputting to " + output_path + ":\n" + "\n".join(self.markdown))
-    with open(output_path, "w") as f:
-      for line in self.markdown:
-        f.write(line + "\n")
+    self.dump(self.markdown[-1], output_path)
 
 
 class ScalaGen(Gen):
   def __init__(self):
-    self.markdown = []
+    self.markdown = [[]]
 
   def matches(self, path):
     return path.endswith(".scala")
+
+  def code_keyword(self):
+    return "scala"
 
   def initialMode(self):
     return FreeMode(self)
@@ -122,10 +138,13 @@ class ScalaGen(Gen):
 
 class JavaGen(Gen):
   def __init__(self):
-    self.markdown = []
+    self.markdown = [[]]
 
   def matches(self, path):
     return path.endswith(".java")
+
+  def code_keyword(self):
+    return "java"
 
   def initialMode(self):
     return FreeMode(self)
@@ -146,8 +165,10 @@ def main(args):
     description="Produces markdown docs from annotated unit tests.")
   parser.add_argument("-p", "--path", required=True,
     help="Path to specific file or file tree to generate documentation for.")
-  parser.add_argument("-o", "--output", required=True,
+  parser.add_argument("-o", "--output-dir", required=True,
     help="Output directory for the generated documentation files.")
+  parser.add_argument("--includes-dir", required=True,
+    help="Output directory for the generated include files.")
   parser.add_argument("-v", "--verbose", default=False,
     help="Turn on verbose output.")
   args = parser.parse_args(args[1:])
@@ -160,7 +181,7 @@ def main(args):
     if not gen:
       abort("File {} does not have extension {}.".format(args.path, extension))
     path = os.path.abspath(args.path)
-    gen.generate(path, args.output)
+    gen.generate(path, args.output_dir, args.includes_dir)
   else:
     for root, dirs, files in os.walk(args.path):
       for file in files:
@@ -168,8 +189,8 @@ def main(args):
         gen = generatorFor(path)
         if gen:
           relpath = os.path.abspath(root)[len(os.path.abspath(args.path)) + 1:]
-          output_path = os.path.join(os.path.abspath(args.output), relpath)
-          gen.generate(path, output_path)
+          output_path = os.path.join(os.path.abspath(args.output_dir), relpath)
+          gen.generate(path, output_path, args.includes_dir)
 
 
 if __name__ == "__main__":
