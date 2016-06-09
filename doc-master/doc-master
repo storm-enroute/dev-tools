@@ -41,6 +41,29 @@ class FreeMode(object):
         return MarkdownMode(self.gen, depth)
       elif cmd.startswith("begin-code"):
         return CodeMode(self.gen, depth)
+      elif cmd.startswith("include-code"):
+        match = re.search("include-code\s+(?P<name>.*):(?P<path>.*)!\*/", cmd)
+        def a(s): self.gen.markdown[-1].append(s)
+        a("<div class='panel-group' id='accordion'>")
+        a("  <div class='panel panel-default'>")
+        a("    <div class='panel-heading'>")
+        a("      <h4 class='panel-title'>")
+        a("        <a data-toggle='collapse' data-parent='#accordion' href='#clps-1'>")
+        a("          " + match.group("name"))
+        a("        </a>")
+        a("      </h4>")
+        a("    </div>")
+        a("    <div id='clps-1' class='panel-collapse collapse'>")
+        a("      <div class='panel-body'>")
+        a("{% capture s %}")
+        a("{% include " + match.group("path") + " %}")
+        a("{% endcapture %}")
+        a("{{ s | markdownify }}")
+        a("      </div>")
+        a("    </div>")
+        a("  </div>")
+        a("</div>")
+        return self
       elif cmd.startswith("begin-include"):
         self.gen.markdown.append([])
         return self
@@ -104,6 +127,9 @@ class Gen(object):
 
   def generate(self, path, output_dir, includes_dir):
     self.includes_dir = includes_dir
+    if not os.path.exists(includes_dir):
+      os.makedirs(includes_dir)
+
     mode = self.initialMode()
     with open(path, "r") as f:
       no = 0
