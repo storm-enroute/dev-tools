@@ -44,16 +44,19 @@ class FreeMode(object):
       elif cmd.startswith("include-code"):
         match = re.search("include-code\s+(?P<name>.*):(?P<path>.*)!\*/", cmd)
         def a(s): self.gen.markdown[-1].append(s)
-        a("<div class='panel-group' id='accordion'>")
+        idx = str(self.gen.next_snippet_index())
+        subidx = str(self.gen.next_snippet_index())
+        a("<div class='panel-group' id='acc-" + idx + "'>")
         a("  <div class='panel panel-default'>")
         a("    <div class='panel-heading'>")
         a("      <h4 class='panel-title'>")
-        a("        <a data-toggle='collapse' data-parent='#accordion' href='#clps-1'>")
+        a("        <a data-toggle='collapse' data-parent='#acc-" + idx + "'")
+        a("          href='#clps-" + subidx + "'>")
         a("          " + match.group("name"))
         a("        </a>")
         a("      </h4>")
         a("    </div>")
-        a("    <div id='clps-1' class='panel-collapse collapse'>")
+        a("    <div id='clps-" + subidx + "' class='panel-collapse collapse'>")
         a("      <div class='panel-body'>")
         a("{% capture s %}")
         a("{% include " + match.group("path") + " %}")
@@ -119,11 +122,19 @@ class CodeMode(object):
 
 
 class Gen(object):
+  def __init__(self):
+    self.snippet_index = 0
+    self.markdown = [[]]
+
   def dump(self, lines, path):
     logv("Outputting to " + path + ":\n" + "\n".join(lines))
     with open(path, "w") as f:
       for line in lines:
         f.write(line + "\n")
+
+  def next_snippet_index(self):
+    self.snippet_index += 1
+    return self.snippet_index
 
   def generate(self, path, output_dir, includes_dir):
     self.includes_dir = includes_dir
@@ -149,9 +160,6 @@ class Gen(object):
 
 
 class ScalaGen(Gen):
-  def __init__(self):
-    self.markdown = [[]]
-
   def matches(self, path):
     return path.endswith(".scala")
 
@@ -163,9 +171,6 @@ class ScalaGen(Gen):
 
 
 class JavaGen(Gen):
-  def __init__(self):
-    self.markdown = [[]]
-
   def matches(self, path):
     return path.endswith(".java")
 
