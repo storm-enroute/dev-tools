@@ -81,7 +81,8 @@ class ScalaLinter(object):
           asterisk_index = line.find("*")
           expected_indentation = scaladoc_indentation + 1
           if (asterisk_index != expected_indentation):
-            msg = "Expected * at offset {0} but found it at offset {1}".format(expected_indentation, asterisk_index)
+            msg = "Expected * at offset {0} but found it at offset {1}".format(
+              expected_indentation, asterisk_index)
             error(filepath, lineno, line, asterisk_index, msg)
           if line.find("*/") != -1:
             inside_scaladoc = False
