@@ -70,11 +70,27 @@ class ScalaLinter(object):
   def check(self, filepath):
     with open(filepath, "r") as f:
       lineno = 0
+      inside_scaladoc = False
+      scaladoc_indentation = -1
       for line in f:
         Linter.check_line_length(filepath, lineno, line[:-1])
         Linter.disallow_char(filepath, lineno, line, "\t", "\\t")
-        lineno += 1
 
+        # Check Scaladoc indentation
+        if (inside_scaladoc):
+          asterisk_index = line.find("*")
+          expected_indentation = scaladoc_indentation + 1
+          if (asterisk_index != expected_indentation):
+            msg = "Expected * at offset {0} but found it at offset {1}".format(
+              expected_indentation, asterisk_index)
+            error(filepath, lineno, line, asterisk_index, msg)
+          if line.find("*/") != -1:
+            inside_scaladoc = False
+        else:
+          scaladoc_indentation = line.find("/**")
+          if scaladoc_indentation != -1:
+            inside_scaladoc = True
+        lineno += 1
 
 linters = [
   PyLinter(),
