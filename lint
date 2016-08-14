@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import re
 import sys
 
 
@@ -87,9 +88,10 @@ class ScalaLinter(object):
           if line.find("*/") != -1:
             inside_scaladoc = False
         else:
-          scaladoc_indentation = line.find("/**")
-          if scaladoc_indentation != -1:
-            inside_scaladoc = True
+          if re.match("\s*/\\*\\*", line):
+            scaladoc_indentation = line.find("/**")
+            if scaladoc_indentation != -1 and line.find("*/") == -1:
+              inside_scaladoc = True
         lineno += 1
 
 linters = [
