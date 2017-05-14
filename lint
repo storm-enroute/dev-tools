@@ -7,6 +7,10 @@ import sys
 
 
 MAX_LINE_LENGTH = 88
+SCALA_KEYWORD_SPACING_RULE_REGEX = (r"\s("
+  r"if|while|try|match|catch|do|else|for"
+  r")({|\()"
+)
 
 
 def log(s):
@@ -93,6 +97,12 @@ class ScalaLinter(object):
             if scaladoc_indentation != -1 and line.find("*/") == -1:
               inside_scaladoc = True
         lineno += 1
+
+        # Check that there is a space after each keyword.
+        keyword_spacing = re.search(SCALA_KEYWORD_SPACING_RULE_REGEX, line)
+        if keyword_spacing:
+          msg = "Keywords should be surrounded with an empty space."
+          error(filepath, lineno, line, keyword_spacing.start(), msg)
 
 linters = [
   PyLinter(),
